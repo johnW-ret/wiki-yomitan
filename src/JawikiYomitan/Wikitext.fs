@@ -45,11 +45,13 @@ let private containerTags =
 let private externalLinks = Regex(@"\[(?:https?|ftp)://[^\s\]]*(?:\s+([^\]]*))?\]", RegexOptions.Compiled)
 let private lineBreakTags = Regex(@"<br\s*/?\s*>", RegexOptions.IgnoreCase ||| RegexOptions.Compiled)
 let private otherTags = Regex(@"</?[A-Za-z][^<>]*>", RegexOptions.Compiled)
-let private magicWords = Regex(@"__[A-Z]+__", RegexOptions.Compiled)
+let private magicWords = Regex(@"__\w+__", RegexOptions.Compiled)
 let private quotes = Regex(@"'{2,}", RegexOptions.Compiled)
 
 /// 「（、）」-style husks left where parenthesised content was only templates.
-let private emptyParens = Regex(@"（[\s、，,・;；:：/／〈〉《》〔〕［］]*）", RegexOptions.Compiled)
+/// （） appear in the class so nested husks like 「（（）、）」 go in one match;
+/// any real content breaks the match.
+let private emptyParens = Regex(@"（[\s、，,・;；:：/／〈〉《》〔〕［］（）]*）", RegexOptions.Compiled)
 
 /// Removes {{templates}} and {|tables|}, including nested ones. Content still
 /// inside an unclosed template/table when the input ends (e.g. because the

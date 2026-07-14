@@ -57,6 +57,14 @@ let ``imagemap content and empty-paren husks are removed`` () =
     Assert.Equal("ポワティエの戦いは、百年戦争の戦いである。", lead.Gloss)
 
 [<Fact>]
+let ``nested paren husks and magic words are removed`` () =
+    let wikitext =
+        "__目次強制__\n'''ヘーパイストス'''（{{lang-grc-short|'''ΗΦΑΙΣΤΟΣ'''}}（{{lang|grc|Ἥφαιστος}}）、{{lang-*-Latn|grc|Hḗphaistos}}）は、ギリシア神話に登場する神である。"
+
+    let lead = (Wikitext.extractLead wikitext).Value
+    Assert.Equal("ヘーパイストスは、ギリシア神話に登場する神である。", lead.Gloss)
+
+[<Fact>]
 let ``file links with a leading space are still dropped, caption and all`` () =
     let wikitext =
         "'''美少女'''（びしょうじょ）は、少女を指す。[[ File:Alice.jpg |thumb|250px|right|[[画家]]「アリス王女の絵姿」(1859年)]]"
