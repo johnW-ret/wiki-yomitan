@@ -1,8 +1,8 @@
-module JawikiYomitan.Tests
+module WikiYomitan.Tests
 
 open System.IO
 open Xunit
-open JawikiYomitan
+open WikiYomitan
 
 let private fixture name =
     File.ReadAllText(Path.Combine(System.AppContext.BaseDirectory, "fixtures", name + ".wiki"))

@@ -1,6 +1,6 @@
 /// Turns the raw wikitext of an article into a short plain-text abstract
 /// (the lead paragraph) plus a kana reading when one can be extracted.
-module JawikiYomitan.Wikitext
+module WikiYomitan.Wikitext
 
 open System
 open System.Text

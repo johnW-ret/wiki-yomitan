@@ -1,5 +1,5 @@
 /// Streams pages out of a MediaWiki pages-articles XML dump.
-module JawikiYomitan.Dump
+module WikiYomitan.Dump
 
 open System.Xml
 

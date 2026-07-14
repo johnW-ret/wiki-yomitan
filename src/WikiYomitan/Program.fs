@@ -1,9 +1,9 @@
-module JawikiYomitan.Program
+module WikiYomitan.Program
 
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
-open JawikiYomitan
+open WikiYomitan
 
 /// Kept per article so redirect entries can quote their target and mine its
 /// lead for the redirect title's own reading. Gloss is the same string the

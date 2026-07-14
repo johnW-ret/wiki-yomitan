@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/JawikiYomitan/JawikiYomitan.fsproj" />
+    <ProjectReference Include="../../src/WikiYomitan/WikiYomitan.fsproj" />
   </ItemGroup>
 
 </Project>

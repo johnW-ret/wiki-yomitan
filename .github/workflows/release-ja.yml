@@ -1,0 +1,63 @@
+name: Release JA dictionary
+
+on:
+  schedule:
+    # jawiki dumps run around the 1st and 20th; build a few days after
+    - cron: "0 6 8,26 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DUMP_URL: https://dumps.wikimedia.org/jawiki/latest/jawiki-latest-pages-articles-multistream.xml.bz2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine dump date and skip if already released
+        id: dump
+        run: |
+          lm=$(curl -sI "$DUMP_URL" | grep -i '^last-modified:' | cut -d' ' -f2-)
+          date=$(date -u -d "$lm" +%Y-%m-%d)
+          echo "date=$date" >> "$GITHUB_OUTPUT"
+          if gh release view "ja-$date" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.dump.outputs.released == 'false'
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download dump
+        if: steps.dump.outputs.released == 'false'
+        run: curl -sS -o dump.xml.bz2 "$DUMP_URL"
+
+      - name: Build dictionary
+        if: steps.dump.outputs.released == 'false'
+        run: |
+          dotnet build -c Release src/WikiYomitan
+          bzcat dump.xml.bz2 | dotnet run -c Release --project src/WikiYomitan --no-build -- \
+            "JA Wikipedia [${{ steps.dump.outputs.date }}] (wiki-yomitan).zip" \
+            --date "${{ steps.dump.outputs.date }}"
+
+      - name: Run tests
+        if: steps.dump.outputs.released == 'false'
+        run: dotnet test tests/WikiYomitan.Tests
+
+      - name: Create release
+        if: steps.dump.outputs.released == 'false'
+        run: |
+          gh release create "ja-${{ steps.dump.outputs.date }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "JA Wikipedia ${{ steps.dump.outputs.date }}" \
+            --notes "Yomitan dictionary built from the [jawiki dump](https://dumps.wikimedia.org/jawiki/) of ${{ steps.dump.outputs.date }}.
+
+          Contains text from [Japanese Wikipedia](https://ja.wikipedia.org/) by Wikipedia contributors, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Every entry links to its source article." \
+            "JA Wikipedia [${{ steps.dump.outputs.date }}] (wiki-yomitan).zip"

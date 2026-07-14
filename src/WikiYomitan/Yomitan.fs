@@ -1,5 +1,5 @@
 /// Writes Yomitan dictionary zips (format 3: index.json + term_bank_N.json).
-module JawikiYomitan.Yomitan
+module WikiYomitan.Yomitan
 
 open System
 open System.IO
@@ -138,15 +138,15 @@ let write (outputPath: string) (dumpDate: string) (bankSize: int) (entries: Entr
         )
     iw.WriteStartObject()
     iw.WriteString("title", $"JA Wikipedia [{dumpDate}]")
-    iw.WriteString("revision", $"jawiki-{dumpDate};jawiki-yomitan")
+    iw.WriteString("revision", $"jawiki-{dumpDate};wiki-yomitan")
     iw.WriteNumber("format", 3)
     iw.WriteBoolean("sequenced", true)
-    iw.WriteString("author", "jawiki-yomitan (local build)")
-    iw.WriteString("url", "https://dumps.wikimedia.org/jawiki/")
+    iw.WriteString("author", "wiki-yomitan")
+    iw.WriteString("url", "https://github.com/johnW-ret/wiki-yomitan")
 
     iw.WriteString(
         "description",
-        $"Lead-paragraph abstracts of every ja.wikipedia.org article (dump of {dumpDate}), including redirect titles. Built locally with jawiki-yomitan."
+        $"Lead-paragraph abstracts of every ja.wikipedia.org article (dump of {dumpDate}), including redirect titles. Built with wiki-yomitan."
     )
 
     iw.WriteString(
