@@ -49,7 +49,7 @@ let private magicWords = Regex(@"__[A-Z]+__", RegexOptions.Compiled)
 let private quotes = Regex(@"'{2,}", RegexOptions.Compiled)
 
 /// 「（、）」-style husks left where parenthesised content was only templates.
-let private emptyParens = Regex(@"（[\s、，,・;；/／]*）", RegexOptions.Compiled)
+let private emptyParens = Regex(@"（[\s、，,・;；:：/／〈〉《》〔〕［］]*）", RegexOptions.Compiled)
 
 /// Removes {{templates}} and {|tables|}, including nested ones. Content still
 /// inside an unclosed template/table when the input ends (e.g. because the
@@ -190,7 +190,7 @@ let private resolveWikiLinks (s: string) =
                 i <- s.Length
             else
                 let inner = s.Substring(i + 2, j - i - 4)
-                let lowered = inner.TrimStart(':').ToLowerInvariant()
+                let lowered = inner.TrimStart(' ', '　', ':').ToLowerInvariant()
 
                 if droppedLinkPrefixes |> List.exists (fun (p: string) -> lowered.StartsWith p) then
                     () // dropped entirely

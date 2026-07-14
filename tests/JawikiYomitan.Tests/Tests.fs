@@ -56,6 +56,14 @@ let ``imagemap content and empty-paren husks are removed`` () =
     let lead = (Wikitext.extractLead wikitext).Value
     Assert.Equal("ポワティエの戦いは、百年戦争の戦いである。", lead.Gloss)
 
+[<Fact>]
+let ``file links with a leading space are still dropped, caption and all`` () =
+    let wikitext =
+        "'''美少女'''（びしょうじょ）は、少女を指す。[[ File:Alice.jpg |thumb|250px|right|[[画家]]「アリス王女の絵姿」(1859年)]]"
+
+    let lead = (Wikitext.extractLead wikitext).Value
+    Assert.Equal("美少女（びしょうじょ）は、少女を指す。", lead.Gloss)
+
 // ---- Reading candidates ----
 
 [<Fact>]
