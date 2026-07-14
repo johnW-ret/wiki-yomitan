@@ -1,0 +1,138 @@
+module JawikiYomitan.Tests
+
+open System.IO
+open Xunit
+open JawikiYomitan
+
+let private fixture name =
+    File.ReadAllText(Path.Combine(System.AppContext.BaseDirectory, "fixtures", name + ".wiki"))
+
+// ---- Lead extraction on real articles ----
+
+[<Fact>]
+let ``周溝: lead paragraph is extracted past file links and templates`` () =
+    let lead = (Wikitext.extractLead (fixture "周溝")).Value
+    Assert.StartsWith("周溝（しゅうこう", lead.Gloss)
+    Assert.Contains("古墳", lead.Gloss)
+    // no wikitext markup survives
+    Assert.DoesNotContain("[[", lead.Gloss)
+    Assert.DoesNotContain("{{", lead.Gloss)
+    Assert.DoesNotContain("'''", lead.Gloss)
+    Assert.DoesNotContain("thumb", lead.Gloss)
+
+[<Fact>]
+let ``周溝: reading is しゅうこう`` () =
+    let lead = (Wikitext.extractLead (fixture "周溝")).Value
+    Assert.Equal("しゅうこう", lead.Reading.Value.Value)
+
+[<Fact>]
+let ``東京都: reading is とうきょうと despite a huge infobox`` () =
+    let lead = (Wikitext.extractLead (fixture "東京都")).Value
+    Assert.StartsWith("東京都", lead.Gloss)
+    Assert.Equal("とうきょうと", lead.Reading.Value.Value)
+
+[<Fact>]
+let ``コンピュータ: katakana title still yields a lead`` () =
+    let lead = (Wikitext.extractLead (fixture "コンピュータ")).Value
+    Assert.StartsWith("コンピュータ", lead.Gloss)
+
+[<Fact>]
+let ``大仙陵古墳: gloss is truncated to a sentence boundary`` () =
+    let lead = (Wikitext.extractLead (fixture "大仙陵古墳")).Value
+    Assert.True(lead.Gloss.Length <= 501)
+    Assert.EndsWith("。", lead.Gloss)
+
+[<Fact>]
+let ``empty and markup-only pages produce no lead`` () =
+    Assert.True((Wikitext.extractLead "").IsNone)
+    Assert.True((Wikitext.extractLead "{{工事中}}\n[[Category:何か]]").IsNone)
+
+[<Fact>]
+let ``imagemap content and empty-paren husks are removed`` () =
+    let wikitext =
+        "<imagemap>File:montage.png|thumb|420px|'''上段''': 何かの写真。</imagemap>\n"
+        + "'''ポワティエの戦い'''（{{lang-fr|Bataille de Poitiers}}、{{lang-en|Battle of Poitiers}}）は、百年戦争の戦いである。"
+
+    let lead = (Wikitext.extractLead wikitext).Value
+    Assert.Equal("ポワティエの戦いは、百年戦争の戦いである。", lead.Gloss)
+
+// ---- Reading candidates ----
+
+[<Fact>]
+let ``readings must be pure kana`` () =
+    Assert.True((Wikitext.Reading.tryCreate "しゅうこう").IsSome)
+    Assert.True((Wikitext.Reading.tryCreate "トーキョー").IsSome)
+    Assert.True((Wikitext.Reading.tryCreate "英: Tokyo").IsNone)
+    Assert.True((Wikitext.Reading.tryCreate "1867年").IsNone)
+    Assert.True((Wikitext.Reading.tryCreate "").IsNone)
+
+// ---- Dump page classification ----
+
+let private dumpXml =
+    """<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
+  <page><title>周溝</title><ns>0</ns><id>1</id>
+    <revision><id>10</id><text>'''周溝'''（しゅうこう）は、古墳などの周囲に掘られた溝。周囲を巡る。</text></revision></page>
+  <page><title>周濠</title><ns>0</ns><id>2</id><redirect title="周溝" />
+    <revision><id>11</id><text>#リダイレクト[[周溝]]</text></revision></page>
+  <page><title>Wikipedia:何か</title><ns>4</ns><id>3</id>
+    <revision><id>12</id><text>プロジェクトページ</text></revision></page>
+</mediawiki>"""
+
+[<Fact>]
+let ``dump reader classifies articles and redirects and skips other namespaces`` () =
+    use stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes dumpXml)
+    let pages = Dump.readPages stream |> List.ofSeq
+
+    Assert.Equal<Dump.Page list>(
+        [ Dump.Article("周溝", "'''周溝'''（しゅうこう）は、古墳などの周囲に掘られた溝。周囲を巡る。")
+          Dump.Redirect("周濠", "周溝") ],
+        pages
+    )
+
+// ---- Zip output ----
+
+[<Fact>]
+let ``writer produces an importable zip with article and redirect rows`` () =
+    let path = Path.Combine(Path.GetTempPath(), $"jawiki-test-{System.Guid.NewGuid()}.zip")
+
+    let entries =
+        [ { Yomitan.Term = "周溝"
+            Yomitan.Reading = "しゅうこう"
+            Yomitan.ArticleTitle = "周溝"
+            Yomitan.Kind = Yomitan.ArticleEntry "周溝（しゅうこう）は、古墳などの周囲に掘られた溝。" }
+          { Yomitan.Term = "周濠"
+            Yomitan.Reading = ""
+            Yomitan.ArticleTitle = "周濠"
+            Yomitan.Kind = Yomitan.RedirectEntry("周溝", "周溝（しゅうこう）は…") } ]
+
+    try
+        let count = Yomitan.write path "2026-07-06" 25_000 entries
+        Assert.Equal(2, count)
+
+        use zip = System.IO.Compression.ZipFile.OpenRead path
+        let names = zip.Entries |> Seq.map (fun e -> e.Name) |> Set.ofSeq
+        Assert.Equal<Set<string>>(Set [ "term_bank_1.json"; "index.json" ], names)
+
+        use bankStream = zip.GetEntry("term_bank_1.json").Open()
+        let bank = System.Text.Json.JsonDocument.Parse bankStream
+        let rows = bank.RootElement.EnumerateArray() |> Array.ofSeq
+        Assert.Equal(2, rows.Length)
+
+        let row = rows.[0]
+        Assert.Equal("周溝", row.[0].GetString())
+        Assert.Equal("しゅうこう", row.[1].GetString())
+        Assert.Equal(1, row.[6].GetInt32())
+        Assert.Equal("structured-content", row.[5].[0].GetProperty("type").GetString())
+
+        let redirectRow = rows.[1]
+        Assert.Equal("周濠", redirectRow.[0].GetString())
+        let json = redirectRow.[5].[0].ToString()
+        Assert.Contains("周溝", json)
+        Assert.Contains("→", json)
+
+        use indexStream = zip.GetEntry("index.json").Open()
+        let index = System.Text.Json.JsonDocument.Parse indexStream
+        Assert.Equal(3, index.RootElement.GetProperty("format").GetInt32())
+        Assert.Contains("2026-07-06", index.RootElement.GetProperty("title").GetString())
+    finally
+        File.Delete path
