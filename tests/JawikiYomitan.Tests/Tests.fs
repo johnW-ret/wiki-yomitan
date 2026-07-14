@@ -131,6 +131,15 @@ let ``latin terms keep ・-joined readings whole`` () =
     )
 
 [<Fact>]
+let ``name-convention spaces and katakana boundaries also embed`` () =
+    // 「姓 名（よみ）」: the given name alone must not take the full reading
+    Assert.True((Wikitext.findTermReading "若冲" "伊藤 若冲（いとう じゃくちゅう、1716年 - 1800年）は画家。").IsNone)
+    // katakana continuing into a kanji term is still one compound name
+    Assert.True(
+        (Wikitext.findTermReading "北遠本線" "浜松市自主運行バス北遠本線（はままつしじしゅうんこうバスほくえんほんせん）は路線。").IsNone
+    )
+
+[<Fact>]
 let ``・ in parens separates alternate readings unless the term itself has ・`` () =
     Assert.Equal(
         "とだちゅうがっこう",

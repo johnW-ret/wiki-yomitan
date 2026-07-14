@@ -278,20 +278,27 @@ let private isKatakana (c: char) = (c >= '゠' && c <= 'ヿ') || c = 'ー'
 /// whose preceding character continues a word — kanji, ・/＝, same-script
 /// katakana, or latin/space before a latin term — are rejected.
 let findTermReading (term: string) (gloss: string) : Reading option =
+    // A character that can continue a name across the match boundary.
+    let wordy c = isKanji c || isKatakana c || Char.IsAsciiLetterOrDigit c
+
     let embedded i =
         if i = 0 then
             false
         else
-            let prev = gloss.[i - 1]
-
-            isKanji prev
+            match gloss.[i - 1] with
+            // 日本中央競馬会, バス北遠本線, PlayStation2: the match continues
+            // a longer name, whose reading would be stolen
+            | prev when wordy prev -> true
             // ・/＝ joins a compound (赤い州・青い州（…）) — but after a
             // 「）」 it merely separates enumerated variants, each carrying
             // its own reading: 周堀（しゅうごう）・周濠（しゅうごう）.
-            || ((prev = '・' || prev = '＝') && not (i >= 2 && gloss.[i - 2] = '）'))
-            || (isKatakana prev && isKatakana term.[0])
-            || (Char.IsAsciiLetterOrDigit term.[0]
-                && (Char.IsAsciiLetterOrDigit prev || prev = ' ' || prev = '　'))
+            | '・'
+            | '＝' -> not (i >= 2 && gloss.[i - 2] = '）')
+            // 「伊藤 若冲（いとう じゃくちゅう…）」: the space in the
+            // full-name convention still joins one name
+            | ' '
+            | '　' -> i >= 2 && wordy gloss.[i - 2]
+            | _ -> false
 
     // ・ between kana candidates separates alternate readings of a kanji term
     // (戸田中学校（とだ…・へだ…）), but segments one long reading of a term
