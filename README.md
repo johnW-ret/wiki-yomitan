@@ -8,6 +8,10 @@ article. Redirect titles (e.g. 周濠 → 周溝) become entries that point at t
 target and quote its abstract — with the redirect's own reading when the
 target's lead states it (周濠【しゅうごう】).
 
+> ⚠️ Note
+>
+> This project was built heavily using AI-coding tools such as Claude Code. I have reviewed and manually continue to review the code and outputs, but I would advise using higher scrutiny when executing code from this project.
+
 **Download the latest Japanese Wikipedia dictionary from the
 [releases page](https://github.com/johnW-ret/wiki-yomitan/releases)** and
 import it in Yomitan via Settings → Dictionaries → Import.
