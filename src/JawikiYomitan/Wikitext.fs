@@ -240,12 +240,9 @@ let private truncateAtSentence (s: string) =
         | -1 -> head + "…"
         | i -> head.Substring(0, i + 1)
 
-/// Extracts the reading from a lead like 「周溝（しゅうこう、…）は…」:
-/// the first kana-only candidate inside the first （…） near the start.
-let private extractReading (gloss: string) =
-    let openIdx = gloss.IndexOf '（'
-
-    if openIdx < 0 || openIdx > 60 then
+/// First kana-only candidate among 「（しゅうこう、…）」-style paren content.
+let private readingFromParens (gloss: string) (openIdx: int) =
+    if openIdx < 0 || openIdx >= gloss.Length || gloss.[openIdx] <> '（' then
         None
     else
         match gloss.IndexOf('）', openIdx) with
@@ -253,6 +250,26 @@ let private extractReading (gloss: string) =
         | closeIdx ->
             gloss.Substring(openIdx + 1, closeIdx - openIdx - 1).Split([| '、'; '，'; ','; '/'; '／'; '；'; ';' |])
             |> Array.tryPick Reading.tryCreate
+
+/// Extracts the reading from a lead like 「周溝（しゅうこう、…）は…」:
+/// the first kana-only candidate inside the first （…） near the start.
+let private extractReading (gloss: string) =
+    let openIdx = gloss.IndexOf '（'
+    if openIdx > 60 then None else readingFromParens gloss openIdx
+
+/// Finds the reading a lead gives for a *mentioned* term, e.g. 周溝's lead
+/// 「…周濠（しゅうごう）とする場合もある」 yields しゅうごう for 周濠. Used for
+/// redirect titles, whose reading often differs from their target's.
+let findTermReading (term: string) (gloss: string) : Reading option =
+    let rec searchFrom start =
+        match gloss.IndexOf(term, start, StringComparison.Ordinal) with
+        | -1 -> None
+        | i ->
+            match readingFromParens gloss (i + term.Length) with
+            | Some r -> Some r
+            | None -> searchFrom (i + term.Length)
+
+    if term.Length = 0 then None else searchFrom 0
 
 /// How much raw wikitext to look at. Leads sit behind (sometimes very large)
 /// infoboxes, so this must comfortably exceed common infobox sizes.

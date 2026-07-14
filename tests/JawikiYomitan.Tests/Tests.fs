@@ -82,6 +82,22 @@ let ``readings must be pure kana`` () =
     Assert.True((Wikitext.Reading.tryCreate "1867年").IsNone)
     Assert.True((Wikitext.Reading.tryCreate "").IsNone)
 
+[<Fact>]
+let ``a lead can give the reading of a mentioned variant term`` () =
+    let gloss =
+        "周溝（しゅうこう）は、日本の考古学における学術用語の1つ。周濠（しゅうごう）・周壕（しゅうごう）とする場合もある。"
+
+    Assert.Equal("しゅうごう", (Wikitext.findTermReading "周濠" gloss).Value.Value)
+    // the term itself resolves to its own reading, not the variant's
+    Assert.Equal("しゅうこう", (Wikitext.findTermReading "周溝" gloss).Value.Value)
+    // mentioned without a reading → none
+    Assert.True((Wikitext.findTermReading "本尊" gloss).IsNone)
+    // mention followed by non-reading parens is skipped, later mention wins
+    Assert.Equal(
+        "しゅうごう",
+        (Wikitext.findTermReading "周濠" "周濠（英: moat）も参照。周濠（しゅうごう）とも。").Value.Value
+    )
+
 // ---- Dump page classification ----
 
 let private dumpXml =

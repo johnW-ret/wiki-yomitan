@@ -5,9 +5,11 @@ open System.Collections.Generic
 open System.Text.RegularExpressions
 open JawikiYomitan
 
-/// Kept per article so redirect entries can quote their target.
+/// Kept per article so redirect entries can quote their target and mine its
+/// lead for the redirect title's own reading. Gloss is the same string the
+/// article entry holds, so this costs a reference, not a copy.
 [<Struct>]
-type private ArticleRecord = { Excerpt: string; Reading: string }
+type private ArticleRecord = { Gloss: string; Reading: string }
 
 let private disambigSuffix = Regex(@"\s*\([^()]*\)$", RegexOptions.Compiled)
 
@@ -71,7 +73,7 @@ let main argv =
                         let reading =
                             lead.Reading |> Option.map _.Value |> Option.defaultValue ""
 
-                        articles[title] <- { Excerpt = excerpt lead.Gloss; Reading = reading }
+                        articles[title] <- { Gloss = lead.Gloss; Reading = reading }
 
                         yield
                             { Yomitan.Term = lookupTerm title
@@ -105,12 +107,18 @@ let main argv =
                 | None -> ()
                 | Some resolved ->
                     let record = articles[resolved]
+                    let term = lookupTerm source
+
+                    let reading =
+                        Wikitext.findTermReading term record.Gloss
+                        |> Option.map _.Value
+                        |> Option.defaultValue ""
 
                     yield
-                        { Yomitan.Term = lookupTerm source
-                          Yomitan.Reading = ""
+                        { Yomitan.Term = term
+                          Yomitan.Reading = reading
                           Yomitan.ArticleTitle = source
-                          Yomitan.Kind = Yomitan.RedirectEntry(resolved, record.Excerpt) }
+                          Yomitan.Kind = Yomitan.RedirectEntry(resolved, excerpt record.Gloss) }
         }
 
     let total =
