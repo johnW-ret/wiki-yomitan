@@ -18,11 +18,6 @@ let private lookupTerm (title: string) =
     let stripped = disambigSuffix.Replace(title, "")
     if stripped.Length > 0 then stripped else title
 
-let private excerptLength = 200
-
-let private excerpt (gloss: string) =
-    if gloss.Length <= excerptLength then gloss else gloss.Substring(0, excerptLength) + "…"
-
 type private Options =
     { OutputPath: string
       DumpDate: string
@@ -118,7 +113,11 @@ let main argv =
                         { Yomitan.Term = term
                           Yomitan.Reading = reading
                           Yomitan.ArticleTitle = source
-                          Yomitan.Kind = Yomitan.RedirectEntry(resolved, excerpt record.Gloss) }
+                          // the target's gloss whole: it is already sentence-
+                          // bounded at maxGlossLength, and cutting it shorter
+                          // can drop exactly the variant sentence that mentions
+                          // this redirect (周濠 in 周溝's lead)
+                          Yomitan.Kind = Yomitan.RedirectEntry(resolved, record.Gloss) }
         }
 
     let total =

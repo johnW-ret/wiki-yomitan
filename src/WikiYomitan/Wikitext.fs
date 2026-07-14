@@ -230,15 +230,65 @@ let private isProseLine (line: string) =
 
 let private maxGlossLength = 500
 
+/// Cuts overlong glosses where a reader would: at the last sentence end (。)
+/// outside parentheses, then at a top-level 、, then just before a
+/// parenthetical the cut would otherwise strand open, and hard as a last
+/// resort. Very early boundaries (< a third in) don't count.
 let private truncateAtSentence (s: string) =
     if s.Length <= maxGlossLength then
         s
     else
         let head = s.Substring(0, maxGlossLength)
 
-        match head.LastIndexOf '。' with
-        | -1 -> head + "…"
-        | i -> head.Substring(0, i + 1)
+        let lastTopLevel isBoundary =
+            let mutable depth = 0
+            let mutable result = -1
+
+            for i in 0 .. head.Length - 1 do
+                match head.[i] with
+                | '（'
+                | '(' -> depth <- depth + 1
+                | '）'
+                | ')' -> depth <- max 0 (depth - 1)
+                | c ->
+                    if depth = 0 && isBoundary c then
+                        result <- i
+
+            result
+
+        let minKeep = maxGlossLength / 3
+        let sentenceEnd = lastTopLevel (fun c -> c = '。')
+
+        if sentenceEnd >= minKeep then
+            head.Substring(0, sentenceEnd + 1)
+        else
+            let clauseEnd = lastTopLevel (fun c -> c = '、' || c = '，')
+
+            if clauseEnd >= minKeep then
+                head.Substring(0, clauseEnd) + "…"
+            else
+                let unclosedParenStart =
+                    let mutable stack = []
+
+                    for i in 0 .. head.Length - 1 do
+                        match head.[i] with
+                        | '（'
+                        | '(' -> stack <- i :: stack
+                        | '）'
+                        | ')' ->
+                            match stack with
+                            | _ :: rest -> stack <- rest
+                            | [] -> ()
+                        | _ -> ()
+
+                    match List.rev stack with
+                    | first :: _ -> first
+                    | [] -> -1
+
+                if unclosedParenStart >= minKeep then
+                    head.Substring(0, unclosedParenStart).TrimEnd([| '、'; '，'; ' '; '　' |]) + "…"
+                else
+                    head + "…"
 
 let private baseSeparators = [| '、'; '，'; ','; '/'; '／'; '；'; ';' |]
 let private separatorsWithDot = Array.append baseSeparators [| '・' |]

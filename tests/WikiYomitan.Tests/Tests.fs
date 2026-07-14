@@ -48,6 +48,22 @@ let ``empty and markup-only pages produce no lead`` () =
     Assert.True((Wikitext.extractLead "{{工事中}}\n[[Category:何か]]").IsNone)
 
 [<Fact>]
+let ``truncation ignores sentence ends inside parentheses`` () =
+    // last 。 inside the limit sits within a parenthetical; the cut must fall
+    // back to the earlier top-level 。 instead of stranding the paren open
+    let text =
+        String.replicate 200 "あ" + "。" + String.replicate 50 "い" + "（" + String.replicate 200 "う" + "。えええ）" + String.replicate 100 "お"
+
+    let lead = (Wikitext.extractLead text).Value
+    Assert.Equal(String.replicate 200 "あ" + "。", lead.Gloss)
+
+[<Fact>]
+let ``truncation cuts before a parenthetical it would strand open`` () =
+    let text = String.replicate 300 "あ" + "（" + String.replicate 300 "い" + "）と続く。"
+    let lead = (Wikitext.extractLead text).Value
+    Assert.Equal(String.replicate 300 "あ" + "…", lead.Gloss)
+
+[<Fact>]
 let ``imagemap content and empty-paren husks are removed`` () =
     let wikitext =
         "<imagemap>File:montage.png|thumb|420px|'''上段''': 何かの写真。</imagemap>\n"
