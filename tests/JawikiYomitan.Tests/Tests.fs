@@ -110,6 +110,25 @@ let ``a term embedded at the end of a longer word does not steal its reading`` (
         (Wikitext.findTermReading "日章旗" "法律上は日章旗（にっしょうき）と呼ばれる。").Value.Value
     )
 
+[<Fact>]
+let ``compound and latin embeddings do not steal readings either`` () =
+    // one half of a ・-joined compound title
+    Assert.True((Wikitext.findTermReading "青い州" "赤い州・青い州（あかいしゅう・あおいしゅう）とは。").IsNone)
+    // latin word inside a longer latin name
+    Assert.True((Wikitext.findTermReading "Home" "PlayStation Home（プレイステーション ホーム）は。").IsNone)
+
+[<Fact>]
+let ``・ in parens separates alternate readings unless the term itself has ・`` () =
+    Assert.Equal(
+        "とだちゅうがっこう",
+        (Wikitext.findTermReading "戸田中学校" "戸田中学校（とだちゅうがっこう・へだちゅうがっこう）は学校。").Value.Value
+    )
+
+    Assert.Equal(
+        "おおつかさいかちどいせき",
+        (Wikitext.findTermReading "大塚・歳勝土遺跡" "大塚・歳勝土遺跡（おおつか・さいかちどいせき）は遺跡。").Value.Value
+    )
+
 // ---- Dump page classification ----
 
 let private dumpXml =

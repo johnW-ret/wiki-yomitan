@@ -240,22 +240,29 @@ let private truncateAtSentence (s: string) =
         | -1 -> head + "…"
         | i -> head.Substring(0, i + 1)
 
+let private baseSeparators = [| '、'; '，'; ','; '/'; '／'; '；'; ';' |]
+let private separatorsWithDot = Array.append baseSeparators [| '・' |]
+
 /// First kana-only candidate among 「（しゅうこう、…）」-style paren content.
-let private readingFromParens (gloss: string) (openIdx: int) =
+/// `splitDots` treats ・ as separating alternate readings (「（とだ…・へだ…）」)
+/// rather than joining segments of one reading (「（おおつか・さいかちど…）」).
+let private readingFromParens (splitDots: bool) (gloss: string) (openIdx: int) =
     if openIdx < 0 || openIdx >= gloss.Length || gloss.[openIdx] <> '（' then
         None
     else
         match gloss.IndexOf('）', openIdx) with
         | -1 -> None
         | closeIdx ->
-            gloss.Substring(openIdx + 1, closeIdx - openIdx - 1).Split([| '、'; '，'; ','; '/'; '／'; '；'; ';' |])
+            gloss
+                .Substring(openIdx + 1, closeIdx - openIdx - 1)
+                .Split(if splitDots then separatorsWithDot else baseSeparators)
             |> Array.tryPick Reading.tryCreate
 
 /// Extracts the reading from a lead like 「周溝（しゅうこう、…）は…」:
 /// the first kana-only candidate inside the first （…） near the start.
 let private extractReading (gloss: string) =
     let openIdx = gloss.IndexOf '（'
-    if openIdx > 60 then None else readingFromParens gloss openIdx
+    if openIdx > 60 then None else readingFromParens false gloss openIdx
 
 let private isKanji (c: char) =
     (c >= '一' && c <= '鿿') || (c >= '㐀' && c <= '䶿') || c = '々' || c = '〆'
@@ -265,20 +272,32 @@ let private isKatakana (c: char) = (c >= '゠' && c <= 'ヿ') || c = 'ー'
 /// Finds the reading a lead gives for a *mentioned* term, e.g. 周溝's lead
 /// 「…周濠（しゅうごう）とする場合もある」 yields しゅうごう for 周濠. Used for
 /// redirect titles, whose reading often differs from their target's.
-/// A match embedded at the end of a longer word (中央競馬会 inside
-/// 日本中央競馬会（にっぽん…）) would steal the longer word's reading, so
-/// matches preceded by a kanji — or by katakana when the term starts with
-/// katakana — are rejected.
+/// A match embedded at the end of a longer word or compound (中央競馬会 inside
+/// 日本中央競馬会（にっぽん…）, 青い州 inside 赤い州・青い州（…）, Home inside
+/// PlayStation Home（…）) would steal the longer name's reading, so matches
+/// whose preceding character continues a word — kanji, ・/＝, same-script
+/// katakana, or latin/space before a latin term — are rejected.
 let findTermReading (term: string) (gloss: string) : Reading option =
     let embedded i =
-        i > 0
-        && (isKanji gloss.[i - 1] || (isKatakana gloss.[i - 1] && isKatakana term.[0]))
+        if i = 0 then
+            false
+        else
+            let prev = gloss.[i - 1]
+
+            isKanji prev
+            || prev = '・'
+            || prev = '＝'
+            || (isKatakana prev && isKatakana term.[0])
+            || (Char.IsAsciiLetterOrDigit term.[0]
+                && (Char.IsAsciiLetterOrDigit prev || prev = ' ' || prev = '　'))
+
+    let splitDots = not (term.Contains '・')
 
     let rec searchFrom start =
         match gloss.IndexOf(term, start, StringComparison.Ordinal) with
         | -1 -> None
         | i ->
-            match (if embedded i then None else readingFromParens gloss (i + term.Length)) with
+            match (if embedded i then None else readingFromParens splitDots gloss (i + term.Length)) with
             | Some r -> Some r
             | None -> searchFrom (i + term.Length)
 
