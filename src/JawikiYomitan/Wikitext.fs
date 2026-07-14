@@ -267,7 +267,10 @@ let private extractReading (gloss: string) =
 let private isKanji (c: char) =
     (c >= '一' && c <= '鿿') || (c >= '㐀' && c <= '䶿') || c = '々' || c = '〆'
 
-let private isKatakana (c: char) = (c >= '゠' && c <= 'ヿ') || c = 'ー'
+// Letters only: ・ (U+30FB) and ゠ (U+30A0) are punctuation despite living
+// in the katakana block, and get their own treatment as name joiners.
+let private isKatakana (c: char) =
+    (c >= 'ァ' && c <= 'ヺ') || c = 'ー' || c = 'ヽ' || c = 'ヾ' || c = 'ヿ'
 
 /// Finds the reading a lead gives for a *mentioned* term, e.g. 周溝's lead
 /// 「…周濠（しゅうごう）とする場合もある」 yields しゅうごう for 周濠. Used for
@@ -293,7 +296,8 @@ let findTermReading (term: string) (gloss: string) : Reading option =
             // 「）」 it merely separates enumerated variants, each carrying
             // its own reading: 周堀（しゅうごう）・周濠（しゅうごう）.
             | '・'
-            | '＝' -> not (i >= 2 && gloss.[i - 2] = '）')
+            | '＝'
+            | '゠' -> not (i >= 2 && gloss.[i - 2] = '）')
             // 「伊藤 若冲（いとう じゃくちゅう…）」: the space in the
             // full-name convention still joins one name
             | ' '
