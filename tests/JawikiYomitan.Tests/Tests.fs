@@ -118,6 +118,19 @@ let ``compound and latin embeddings do not steal readings either`` () =
     Assert.True((Wikitext.findTermReading "Home" "PlayStation Home（プレイステーション ホーム）は。").IsNone)
 
 [<Fact>]
+let ``enumerated variants each keep their own reading despite the ・ between them`` () =
+    let gloss = "周溝（しゅうこう）は溝。周堀（しゅうごう）・周濠（しゅうごう）・周壕（しゅうごう）とする場合もある。"
+    Assert.Equal("しゅうごう", (Wikitext.findTermReading "周濠" gloss).Value.Value)
+    Assert.Equal("しゅうごう", (Wikitext.findTermReading "周壕" gloss).Value.Value)
+
+[<Fact>]
+let ``latin terms keep ・-joined readings whole`` () =
+    Assert.Equal(
+        "サッポロビールオトアジート",
+        (Wikitext.findTermReading "SAPPORO BEER OTOAJITO" "SAPPORO BEER OTOAJITO（サッポロビール・オトアジート）は店。").Value.Value
+    )
+
+[<Fact>]
 let ``・ in parens separates alternate readings unless the term itself has ・`` () =
     Assert.Equal(
         "とだちゅうがっこう",

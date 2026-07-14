@@ -285,13 +285,19 @@ let findTermReading (term: string) (gloss: string) : Reading option =
             let prev = gloss.[i - 1]
 
             isKanji prev
-            || prev = '・'
-            || prev = '＝'
+            // ・/＝ joins a compound (赤い州・青い州（…）) — but after a
+            // 「）」 it merely separates enumerated variants, each carrying
+            // its own reading: 周堀（しゅうごう）・周濠（しゅうごう）.
+            || ((prev = '・' || prev = '＝') && not (i >= 2 && gloss.[i - 2] = '）'))
             || (isKatakana prev && isKatakana term.[0])
             || (Char.IsAsciiLetterOrDigit term.[0]
                 && (Char.IsAsciiLetterOrDigit prev || prev = ' ' || prev = '　'))
 
-    let splitDots = not (term.Contains '・')
+    // ・ between kana candidates separates alternate readings of a kanji term
+    // (戸田中学校（とだ…・へだ…）), but segments one long reading of a term
+    // that itself contains ・ or latin words (SAPPORO BEER OTOAJITO
+    // （サッポロビール・オトアジート）).
+    let splitDots = not (term.Contains '・') && Seq.exists isKanji term
 
     let rec searchFrom start =
         match gloss.IndexOf(term, start, StringComparison.Ordinal) with
