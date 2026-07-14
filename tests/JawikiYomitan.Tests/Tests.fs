@@ -98,6 +98,18 @@ let ``a lead can give the reading of a mentioned variant term`` () =
         (Wikitext.findTermReading "周濠" "周濠（英: moat）も参照。周濠（しゅうごう）とも。").Value.Value
     )
 
+[<Fact>]
+let ``a term embedded at the end of a longer word does not steal its reading`` () =
+    let gloss = "日本中央競馬会（にっぽんちゅうおうけいばかい、JRA）は、競馬法に基づく特殊法人。"
+    Assert.True((Wikitext.findTermReading "中央競馬会" gloss).IsNone)
+    // katakana suffix inside a katakana word is likewise rejected
+    Assert.True((Wikitext.findTermReading "ワーク" "ハローワーク（はろーわーく）とは。").IsNone)
+    // but a particle before the term is a word boundary, so this still works
+    Assert.Equal(
+        "にっしょうき",
+        (Wikitext.findTermReading "日章旗" "法律上は日章旗（にっしょうき）と呼ばれる。").Value.Value
+    )
+
 // ---- Dump page classification ----
 
 let private dumpXml =

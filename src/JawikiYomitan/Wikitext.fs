@@ -257,15 +257,28 @@ let private extractReading (gloss: string) =
     let openIdx = gloss.IndexOf '（'
     if openIdx > 60 then None else readingFromParens gloss openIdx
 
+let private isKanji (c: char) =
+    (c >= '一' && c <= '鿿') || (c >= '㐀' && c <= '䶿') || c = '々' || c = '〆'
+
+let private isKatakana (c: char) = (c >= '゠' && c <= 'ヿ') || c = 'ー'
+
 /// Finds the reading a lead gives for a *mentioned* term, e.g. 周溝's lead
 /// 「…周濠（しゅうごう）とする場合もある」 yields しゅうごう for 周濠. Used for
 /// redirect titles, whose reading often differs from their target's.
+/// A match embedded at the end of a longer word (中央競馬会 inside
+/// 日本中央競馬会（にっぽん…）) would steal the longer word's reading, so
+/// matches preceded by a kanji — or by katakana when the term starts with
+/// katakana — are rejected.
 let findTermReading (term: string) (gloss: string) : Reading option =
+    let embedded i =
+        i > 0
+        && (isKanji gloss.[i - 1] || (isKatakana gloss.[i - 1] && isKatakana term.[0]))
+
     let rec searchFrom start =
         match gloss.IndexOf(term, start, StringComparison.Ordinal) with
         | -1 -> None
         | i ->
-            match readingFromParens gloss (i + term.Length) with
+            match (if embedded i then None else readingFromParens gloss (i + term.Length)) with
             | Some r -> Some r
             | None -> searchFrom (i + term.Length)
 
